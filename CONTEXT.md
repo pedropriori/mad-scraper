@@ -41,7 +41,7 @@ tests/
 | 2: Models + Config | ✅ DONE | b6e18e4 | Lesson, Comment, LessonContent, config.py |
 | 3: Progress Module | ✅ DONE | 6365fb8, a0d45d3 | TDD — 8 testes. Fix de write atômico adicionado |
 | 4: Writer Module | ✅ DONE | 0fb9d83, aae7ea3 | TDD — 11 testes. Fixes: slugify, trailing newline, multiline comments, constant |
-| 5: HTML Inspection | ⏳ PENDING | — | **MANUAL** — requer senha do usuário |
+| 5: HTML Inspection | ✅ DONE | 8caca95 | Seletores reais descobertos — ver seção abaixo |
 | 6: Auth Module | ⏳ PENDING | — | Depende de selectors do Task 5 |
 | 7: Discovery Module | ⏳ PENDING | — | Depende de selectors do Task 5 |
 | 8: Extractor Module | ⏳ PENDING | — | Depende de selectors do Task 5 |
@@ -59,6 +59,49 @@ tests/
 - **Output**: `mentoria-american-dream/modulo-XX-nome/aula-XX-nome/{video.mp4,metadata.json,comentarios.json,nota.md}`
 
 ---
+
+## Seletores Reais (Task 5 — Concluída)
+
+### Auth
+- Email input: `input[type='email']`
+- Password input: `input[type='password']`
+- Submit: `button[type='submit']`
+- Post-login fragment: `/dashboard`
+
+### Discovery
+- **Estratégia**: Navegar para qualquer URL de aula (ex: `{COURSE_URL}/125393/707026`) → sidebar carrega 107 aulas
+- Sidebar container: `.videos .accordion.scroll`
+- Módulos na sidebar: `dl` (direto dentro do accordion — NÃO `dl.modulo-container`)
+- Título do módulo: `dl dt h3`
+- Links de aula: `dl dd div.item a[href*='mentoria-american-dream']`
+- Título da aula: `a li.aulabox h6` (ou `li h6` dentro do `a`)
+- URL completa: `BASE_URL + "/" + href.lstrip("/")`
+- Total: **6 módulos, 107 aulas**
+
+### Extractor (página de cada aula)
+- Título: `.videohead h6`
+- Descrição: `.videodesc`
+- Panda Video URL: `iframe.streaming-video-url` → atributo `data-original-url`
+  - (ou `iframe[data-streaming-video]`)
+- Comentários reais: `div.comment.comment-box[data-id]:not([data-id="{id}"])`
+  - Autor: `h4.name.text-truncate`
+  - Data: `p.time`
+  - Corpo: `p.commentdesc`
+- Sem comentários: elemento `.nocomments` presente com "Seja o primeiro a comentar"
+
+### Estrutura da sidebar (módulo/aula)
+```html
+<dl>
+  <dt><div class="head"><div class="content"><h3>Módulo X</h3></div></div></dt>
+  <dd>
+    <div class="item"><a href="curso/mentoria-american-dream/125393/LESSON_ID">
+      <li class="aulabox" data-aulaid="LESSON_ID">
+        <div class="item-titulo"><h6>Título da Aula</h6></div>
+      </li>
+    </a></div>
+  </dd>
+</dl>
+```
 
 ## Task 5 — Atenção Especial (Manual)
 
@@ -93,4 +136,4 @@ python scraper.py --retry-failed
 
 ---
 
-*Última atualização: Task 4 concluída — 2026-05-19*
+*Última atualização: Task 5 concluída — 2026-05-19*
