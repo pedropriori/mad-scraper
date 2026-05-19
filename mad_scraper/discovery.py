@@ -3,7 +3,7 @@ import logging
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 
-from .config import BASE_URL
+from .config import BASE_URL, HEADLESS
 from .models import Lesson
 
 LESSON_HREF_PATTERN = "mentoria-american-dream"
@@ -12,30 +12,32 @@ LESSON_HREF_PATTERN = "mentoria-american-dream"
 def get_lessons(course_url: str, cookies: list[dict]) -> list[Lesson]:
     """Navigate to course, then extract full lesson list from sidebar of any lesson page."""
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
-        context = browser.new_context()
-        context.add_cookies(cookies)
-        page = context.new_page()
-
-        # Navigate to course page
-        page.goto(course_url)
-        page.wait_for_load_state("networkidle")
-
-        # Click first module header to navigate to a lesson page (where sidebar loads fully)
+        browser = p.chromium.launch(headless=HEADLESS)
         try:
-            page.click("dl.modulo-container dt", timeout=10000)
+            context = browser.new_context()
+            context.add_cookies(cookies)
+            page = context.new_page()
+
+            # Navigate to course page
+            page.goto(course_url)
             page.wait_for_load_state("networkidle")
-        except Exception as e:
-            logging.debug("Module click triggered navigation or failed: %s", e)
 
-        # Wait for sidebar with lesson list to load
-        try:
-            page.wait_for_selector(".videos .accordion.scroll dl", timeout=15000)
-        except Exception as e:
-            logging.warning("Sidebar selector not found: %s", e)
+            # Click first module header to navigate to a lesson page (where sidebar loads fully)
+            try:
+                page.click("dl.modulo-container dt", timeout=10000)
+                page.wait_for_load_state("networkidle")
+            except Exception as e:
+                logging.debug("Module click triggered navigation or failed: %s", e)
 
-        html = page.content()
-        browser.close()
+            # Wait for sidebar with lesson list to load
+            try:
+                page.wait_for_selector(".videos .accordion.scroll dl", timeout=15000)
+            except Exception as e:
+                logging.warning("Sidebar selector not found: %s", e)
+
+            html = page.content()
+        finally:
+            browser.close()
 
     return _parse_lessons_html(html, BASE_URL)
 

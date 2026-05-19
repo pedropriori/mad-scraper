@@ -2,6 +2,7 @@ import logging
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 
+from .config import HEADLESS
 from .models import Lesson, LessonContent, Comment
 
 TEMPLATE_COMMENT_ID = "{id}"
@@ -9,18 +10,20 @@ TEMPLATE_COMMENT_ID = "{id}"
 
 def extract(lesson: Lesson, cookies: list[dict]) -> LessonContent:
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
-        context = browser.new_context()
-        context.add_cookies(cookies)
-        page = context.new_page()
-        page.goto(lesson.url)
-        page.wait_for_load_state("networkidle")
+        browser = p.chromium.launch(headless=HEADLESS)
         try:
-            page.wait_for_selector("iframe.streaming-video-url", timeout=10000)
-        except Exception as e:
-            logging.debug("Video iframe not found (text-only lesson?): %s", e)
-        html = page.content()
-        browser.close()
+            context = browser.new_context()
+            context.add_cookies(cookies)
+            page = context.new_page()
+            page.goto(lesson.url)
+            page.wait_for_load_state("networkidle")
+            try:
+                page.wait_for_selector("iframe.streaming-video-url", timeout=10000)
+            except Exception as e:
+                logging.debug("Video iframe not found (text-only lesson?): %s", e)
+            html = page.content()
+        finally:
+            browser.close()
     return _parse_html(html, lesson)
 
 

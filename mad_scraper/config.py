@@ -12,3 +12,4 @@ COOKIES_PATH = Path(".cookies.json")
 LOGIN_EMAIL: str = os.getenv("LOGIN_EMAIL", "")
 LOGIN_PASSWORD: str = os.getenv("LOGIN_PASSWORD", "")
 OUTPUT_DIR: Path = Path(os.getenv("OUTPUT_DIR", "mentoria-american-dream"))
+HEADLESS: bool = os.getenv("HEADLESS", "false").lower() == "true"

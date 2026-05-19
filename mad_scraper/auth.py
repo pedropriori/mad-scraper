@@ -1,23 +1,25 @@
 import json
 from pathlib import Path
 from playwright.sync_api import sync_playwright
-from .config import LOGIN_URL
+from .config import LOGIN_URL, HEADLESS
 
 POST_LOGIN_FRAGMENT = "/dashboard"
 
 
 def login(email: str, password: str, cookies_path: Path) -> list[dict]:
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
-        page = browser.new_page()
-        page.goto(LOGIN_URL)
-        page.wait_for_load_state("networkidle")
-        page.fill("input[type='email']", email)
-        page.fill("input[type='password']", password)
-        page.click("button[type='submit']")
-        page.wait_for_url(f"**{POST_LOGIN_FRAGMENT}**", timeout=20000)
-        cookies = page.context.cookies()
-        browser.close()
+        browser = p.chromium.launch(headless=HEADLESS)
+        try:
+            page = browser.new_page()
+            page.goto(LOGIN_URL)
+            page.wait_for_load_state("networkidle")
+            page.fill("input[type='email']", email)
+            page.fill("input[type='password']", password)
+            page.click("button[type='submit']")
+            page.wait_for_url(f"**{POST_LOGIN_FRAGMENT}**", timeout=20000)
+            cookies = page.context.cookies()
+        finally:
+            browser.close()
 
     cookies_path.write_text(json.dumps(cookies, indent=2), encoding="utf-8")
     cookies_path.chmod(0o600)
