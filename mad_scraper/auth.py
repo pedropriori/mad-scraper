@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from .config import LOGIN_URL
 
-LOGIN_URL = "https://mentoriaamericandr.astronmembers.com/entrar"
 POST_LOGIN_FRAGMENT = "/dashboard"
 
 
@@ -20,6 +20,7 @@ def login(email: str, password: str, cookies_path: Path) -> list[dict]:
         browser.close()
 
     cookies_path.write_text(json.dumps(cookies, indent=2), encoding="utf-8")
+    cookies_path.chmod(0o600)
     return cookies
 
 
@@ -35,8 +36,10 @@ def cookies_to_netscape(cookies: list[dict]) -> str:
         domain = c.get("domain", "")
         include_sub = "TRUE" if domain.startswith(".") else "FALSE"
         secure = "TRUE" if c.get("secure", False) else "FALSE"
+        expires_raw = c.get("expires", 0)
+        expires = max(0, int(expires_raw)) if expires_raw is not None else 0
         lines.append(
             f"{domain}\t{include_sub}\t{c.get('path', '/')}\t{secure}"
-            f"\t{int(c.get('expires', 0))}\t{c.get('name', '')}\t{c.get('value', '')}"
+            f"\t{expires}\t{c.get('name', '')}\t{c.get('value', '')}"
         )
     return "\n".join(lines)

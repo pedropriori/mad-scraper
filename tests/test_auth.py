@@ -47,6 +47,13 @@ def test_load_cookies_raises_if_missing(tmp_path):
 def test_cookies_to_netscape_format():
     netscape = auth.cookies_to_netscape([_cookie(name="sid", value="xyz")])
     assert "# Netscape HTTP Cookie File" in netscape
-    assert ".astronmembers.com" in netscape
-    assert "sid" in netscape
-    assert "xyz" in netscape
+    lines = netscape.split("\n")
+    parts = lines[1].split("\t")
+    assert len(parts) == 7
+    assert parts[0] == ".astronmembers.com"
+    assert parts[1] == "TRUE"   # subdomain
+    assert parts[2] == "/"      # path
+    assert parts[3] == "TRUE"   # secure
+    assert parts[4] == "9999999999"
+    assert parts[5] == "sid"
+    assert parts[6] == "xyz"
