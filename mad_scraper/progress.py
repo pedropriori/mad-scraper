@@ -1,4 +1,6 @@
 import json
+import os
+import tempfile
 from enum import Enum
 from pathlib import Path
 
@@ -16,9 +18,14 @@ def load(progress_path: Path) -> dict:
 
 
 def save(progress_path: Path, data: dict) -> None:
-    progress_path.write_text(
-        json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    tmp_fd, tmp_name = tempfile.mkstemp(dir=progress_path.parent, suffix=".tmp")
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
+            f.write(json.dumps(data, indent=2, ensure_ascii=False))
+        os.replace(tmp_name, progress_path)
+    except Exception:
+        os.unlink(tmp_name)
+        raise
 
 
 def mark(progress_path: Path, lesson_url: str, status: Status) -> None:
