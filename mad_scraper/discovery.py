@@ -1,7 +1,9 @@
+import logging
+
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 
-from .config import BASE_URL, COURSE_URL
+from .config import BASE_URL
 from .models import Lesson
 
 LESSON_HREF_PATTERN = "mentoria-american-dream"
@@ -23,14 +25,14 @@ def get_lessons(course_url: str, cookies: list[dict]) -> list[Lesson]:
         try:
             page.click("dl.modulo-container dt", timeout=10000)
             page.wait_for_load_state("networkidle")
-        except Exception:
-            pass  # May already be on a lesson page or structure differs
+        except Exception as e:
+            logging.debug("Module click triggered navigation or failed: %s", e)
 
         # Wait for sidebar with lesson list to load
         try:
             page.wait_for_selector(".videos .accordion.scroll dl", timeout=15000)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.warning("Sidebar selector not found: %s", e)
 
         html = page.content()
         browser.close()
@@ -43,9 +45,9 @@ def _parse_lessons_html(html: str, base_url: str) -> list[Lesson]:
     soup = BeautifulSoup(html, "html.parser")
 
     # Find the accordion inside .videos sidebar
-    accordion = soup.select_one(".accordion.scroll, .accordion")
+    accordion = soup.select_one(".accordion.scroll") or soup.select_one(".accordion")
     if accordion is None:
-        accordion = soup
+        return []
 
     lessons = []
     module_elements = accordion.select("dl")
@@ -58,8 +60,6 @@ def _parse_lessons_html(html: str, base_url: str) -> list[Lesson]:
 
         for aula_index, link in enumerate(lesson_links, 1):
             href = link.get("href", "").strip()
-            if not href:
-                continue
             url = href if href.startswith("http") else f"{base_url}/{href.lstrip('/')}"
 
             h6 = link.select_one("li h6, h6")
