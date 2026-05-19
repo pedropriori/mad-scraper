@@ -10,36 +10,44 @@ COOKIES = [{
 EMBED_URL = "https://player-vz-abc.tv.pandavideo.com.br/embed/?v=xyz"
 
 
+def _ydl_mock(download_return: int = 0):
+    m = MagicMock()
+    m.__enter__.return_value = m
+    m.download.return_value = download_return
+    return m
+
+
 def test_returns_true_on_success(tmp_path):
-    with patch("mad_scraper.downloader.subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
+    with patch("mad_scraper.downloader.yt_dlp.YoutubeDL", return_value=_ydl_mock(0)):
         assert downloader.download_video(EMBED_URL, tmp_path, COOKIES) is True
 
 
 def test_returns_false_on_failure(tmp_path):
-    with patch("mad_scraper.downloader.subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=1)
+    with patch("mad_scraper.downloader.yt_dlp.YoutubeDL", return_value=_ydl_mock(1)):
         assert downloader.download_video(EMBED_URL, tmp_path, COOKIES) is False
 
 
-def test_passes_embed_url_to_ytdlp(tmp_path):
-    with patch("mad_scraper.downloader.subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
+def test_passes_video_url_to_ytdlp(tmp_path):
+    mock_ydl = _ydl_mock()
+    with patch("mad_scraper.downloader.yt_dlp.YoutubeDL", return_value=mock_ydl):
         downloader.download_video(EMBED_URL, tmp_path, COOKIES)
-        cmd = mock_run.call_args[0][0]
-    assert EMBED_URL in cmd
+    mock_ydl.download.assert_called_once_with([EMBED_URL])
 
 
-def test_passes_output_path_to_ytdlp(tmp_path):
-    with patch("mad_scraper.downloader.subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
+def test_output_path_in_opts(tmp_path):
+    captured: dict = {}
+
+    def fake_ydl(opts):
+        captured.update(opts)
+        return _ydl_mock()
+
+    with patch("mad_scraper.downloader.yt_dlp.YoutubeDL", side_effect=fake_ydl):
         downloader.download_video(EMBED_URL, tmp_path, COOKIES)
-        cmd = mock_run.call_args[0][0]
-    assert str(tmp_path) in " ".join(cmd)
+
+    assert str(tmp_path) in captured.get("outtmpl", "")
 
 
 def test_cleans_up_temp_cookie_file(tmp_path):
-    with patch("mad_scraper.downloader.subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
+    with patch("mad_scraper.downloader.yt_dlp.YoutubeDL", return_value=_ydl_mock()):
         downloader.download_video(EMBED_URL, tmp_path, COOKIES)
     assert len(list(tmp_path.glob(".tmp_cookies*"))) == 0

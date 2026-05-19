@@ -2,5 +2,6 @@ playwright>=1.44
 yt-dlp>=2024.5.0
 beautifulsoup4>=4.12
 python-dotenv>=1.0.0
+rich>=13.0
 pytest>=8.0
 pytest-mock>=3.12

@@ -8,6 +8,43 @@ from .models import Lesson, LessonContent, Comment
 TEMPLATE_COMMENT_ID = "{id}"
 
 
+_QUALITY_PREF = ["1080p", "720p", "480p", "360p"]
+
+
+def extract_with_page(lesson: Lesson, page) -> LessonContent:
+    """Extract lesson content reusing an existing Playwright page (no new browser)."""
+    m3u8_by_quality: dict[str, str] = {}
+
+    def _on_request(request):
+        url = request.url
+        if ".m3u8" not in url or "get_qualities" in url:
+            return
+        for q in _QUALITY_PREF:
+            if f"/{q}/" in url:
+                m3u8_by_quality[q] = url
+                return
+
+    page.on("request", _on_request)
+    try:
+        page.goto(lesson.url)
+        page.wait_for_load_state("networkidle")
+        try:
+            page.wait_for_selector("iframe.streaming-video-url", timeout=10000)
+            page.wait_for_timeout(3000)  # wait for player to request quality streams
+        except Exception as e:
+            logging.debug("Video iframe not found (text-only?): %s", e)
+        html = page.content()
+    finally:
+        page.remove_listener("request", _on_request)
+
+    content = _parse_html(html, lesson)
+    for quality in _QUALITY_PREF:
+        if quality in m3u8_by_quality:
+            content.panda_embed_url = m3u8_by_quality[quality]
+            break
+    return content
+
+
 def extract(lesson: Lesson, cookies: list[dict]) -> LessonContent:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=HEADLESS)

@@ -1,11 +1,13 @@
-import subprocess
+import yt_dlp
 from pathlib import Path
 
 from .auth import cookies_to_netscape
 
+_REFERER = "https://mentoriaamericandr.astronmembers.com"
+
 
 def download_video(
-    panda_embed_url: str,
+    video_url: str,
     lesson_dir: Path,
     cookies: list[dict],
     retries: int = 2,
@@ -13,16 +15,20 @@ def download_video(
     cookies_file = lesson_dir / ".tmp_cookies.txt"
     cookies_file.write_text(cookies_to_netscape(cookies), encoding="utf-8")
     try:
-        cmd = [
-            "yt-dlp",
-            "--cookies", str(cookies_file),
-            "--output", str(lesson_dir / "video.%(ext)s"),
-            "--retries", str(retries),
-            "--no-playlist",
-            "--add-header", "Referer:https://mentoriaamericandr.astronmembers.com",
-            panda_embed_url,
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        return result.returncode == 0
+        opts = {
+            "cookiefile": str(cookies_file),
+            "outtmpl": str(lesson_dir / "video.%(ext)s"),
+            "retries": retries,
+            "noplaylist": True,
+            "quiet": True,
+            "no_warnings": True,
+            "noprogress": True,
+            "overwrites": True,
+            "http_headers": {"Referer": _REFERER},
+        }
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            return ydl.download([video_url]) == 0
+    except Exception:
+        return False
     finally:
         cookies_file.unlink(missing_ok=True)

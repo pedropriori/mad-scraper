@@ -9,6 +9,29 @@ from .models import Lesson
 LESSON_HREF_PATTERN = "mentoria-american-dream"
 
 
+def get_lessons_with_page(course_url: str, page) -> list[Lesson]:
+    """Navigate to course and extract lesson list using an existing Playwright page."""
+    page.goto(course_url)
+    page.wait_for_load_state("networkidle")
+
+    lesson_link = page.query_selector(f"a[href*='{LESSON_HREF_PATTERN}']")
+    if lesson_link:
+        href = lesson_link.get_attribute("href") or ""
+        lesson_url = href if href.startswith("http") else f"{BASE_URL}/{href.lstrip('/')}"
+        logging.debug("Navigating to lesson page: %s", lesson_url)
+        page.goto(lesson_url)
+        page.wait_for_load_state("networkidle")
+    else:
+        logging.warning("No lesson link found on %s", page.url)
+
+    try:
+        page.wait_for_selector(".videos .accordion.scroll dl", timeout=15000)
+    except Exception as e:
+        logging.warning("Sidebar selector not found: %s", e)
+
+    return _parse_lessons_html(page.content(), BASE_URL)
+
+
 def get_lessons(course_url: str, cookies: list[dict]) -> list[Lesson]:
     """Navigate to course, follow first lesson link, then extract full list from sidebar."""
     with sync_playwright() as p:
