@@ -10,7 +10,7 @@ LESSON_HREF_PATTERN = "mentoria-american-dream"
 
 
 def get_lessons(course_url: str, cookies: list[dict]) -> list[Lesson]:
-    """Navigate to course, then extract full lesson list from sidebar of any lesson page."""
+    """Navigate to course, follow first lesson link, then extract full list from sidebar."""
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=HEADLESS)
         try:
@@ -18,18 +18,22 @@ def get_lessons(course_url: str, cookies: list[dict]) -> list[Lesson]:
             context.add_cookies(cookies)
             page = context.new_page()
 
-            # Navigate to course page
+            # course_url may redirect (e.g. to /dashboard) — navigate and find a lesson link
             page.goto(course_url)
             page.wait_for_load_state("networkidle")
 
-            # Click first module header to navigate to a lesson page (where sidebar loads fully)
-            try:
-                page.click("dl.modulo-container dt", timeout=10000)
+            # Find first link to a lesson on whatever page we landed on
+            lesson_link = page.query_selector(f"a[href*='{LESSON_HREF_PATTERN}']")
+            if lesson_link:
+                href = lesson_link.get_attribute("href") or ""
+                lesson_url = href if href.startswith("http") else f"{BASE_URL}/{href.lstrip('/')}"
+                logging.debug("Navigating to lesson page: %s", lesson_url)
+                page.goto(lesson_url)
                 page.wait_for_load_state("networkidle")
-            except Exception as e:
-                logging.debug("Module click triggered navigation or failed: %s", e)
+            else:
+                logging.warning("No lesson link found on %s", page.url)
 
-            # Wait for sidebar with lesson list to load
+            # Wait for sidebar with full lesson list to load
             try:
                 page.wait_for_selector(".videos .accordion.scroll dl", timeout=15000)
             except Exception as e:

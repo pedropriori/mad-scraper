@@ -1,6 +1,9 @@
 import sys
+import io
 from pathlib import Path
 from dotenv import load_dotenv
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 from mad_scraper import auth, discovery, extractor, downloader, writer, progress
 from mad_scraper.config import LOGIN_EMAIL, LOGIN_PASSWORD, OUTPUT_DIR, COOKIES_PATH, COURSE_URL
