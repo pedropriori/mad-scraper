@@ -1,9 +1,12 @@
+# -*- coding: utf-8 -*-
 import json
 import re
 from datetime import datetime
 from pathlib import Path
 
 from .models import LessonContent
+
+_CURSO_NAME = "Mentoria American Dream"
 
 
 def write_lesson(content: LessonContent, output_dir: Path) -> Path:
@@ -27,7 +30,7 @@ def _write_metadata(content: LessonContent, lesson_dir: Path) -> None:
         "modulo": content.lesson.modulo,
         "modulo_index": content.lesson.modulo_index,
         "aula_index": content.lesson.aula_index,
-        "curso": "Mentoria American Dream",
+        "curso": _CURSO_NAME,
         "url": content.lesson.url,
         "data_download": datetime.now().isoformat(timespec="seconds"),
         "duracao_segundos": content.duracao_segundos,
@@ -50,7 +53,7 @@ def _write_nota(content: LessonContent, lesson_dir: Path) -> None:
         "---",
         f'titulo: "{content.lesson.titulo}"',
         f'modulo: "{content.lesson.modulo}"',
-        'curso: "Mentoria American Dream"',
+        f'curso: "{_CURSO_NAME}"',
         f'data_download: "{datetime.now().date()}"',
         f'url: "{content.lesson.url}"',
         f"tags: [mentoria, american-dream, {modulo_tag}]",
@@ -64,23 +67,17 @@ def _write_nota(content: LessonContent, lesson_dir: Path) -> None:
     if content.comentarios:
         lines += ["", "## Comentários"]
         for c in content.comentarios:
-            lines += ["", f"**{c.autor}** · {c.data}", f"> {c.texto}"]
-    (lesson_dir / "nota.md").write_text("\n".join(lines), encoding="utf-8")
+            quoted = "\n".join(f"> {line}" for line in c.texto.splitlines())
+            lines += ["", f"**{c.autor}** · {c.data}", quoted]
+    (lesson_dir / "nota.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def _slugify(text: str) -> str:
-    # Map accented characters to their base forms
-    accent_map = {
-        'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a', 'å': 'a',
-        'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
-        'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i',
-        'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o',
-        'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u',
-        'ç': 'c', 'ñ': 'n',
-    }
-    text = text.lower()
-    for accent, base in accent_map.items():
-        text = text.replace(accent, base)
+    table = str.maketrans(
+        "àáâãäåèéêëìíîïòóôõöùúûüçñ",
+        "aaaaaaeeeeiiiiooooouuuucn",
+    )
+    text = text.lower().translate(table)
     text = re.sub(r"[^a-z0-9\-]", "-", text)
     text = re.sub(r"-+", "-", text)
     return text.strip("-")
