@@ -24,6 +24,7 @@ def download_video(
             "no_warnings": True,
             "noprogress": True,
             "overwrites": True,
+            "concurrent_fragment_downloads": 16,
             "http_headers": {"Referer": _REFERER},
         }
         with yt_dlp.YoutubeDL(opts) as ydl:
