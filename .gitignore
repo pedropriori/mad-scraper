@@ -1,0 +1,17 @@
+.env
+.cookies.json
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+inspection_output.txt
+*_page.html
+*_live.html
+*_final.html
+*_expanded.html
+mentoria-american-dream/
