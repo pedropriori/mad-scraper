@@ -9,111 +9,48 @@
 
 ---
 
-## Arquitetura
-
-```
-scraper.py          → CLI + orquestrador
-mad_scraper/
-  models.py         → Lesson, Comment, LessonContent (dataclasses)
-  config.py         → env loading, URL constants
-  progress.py       → progress.json read/write (resumabilidade)
-  auth.py           → Playwright login + cookie export
-  discovery.py      → navega curso → list[Lesson]
-  extractor.py      → navega aula → LessonContent
-  downloader.py     → yt-dlp wrapper
-  writer.py         → grava metadata.json, comentarios.json, nota.md
-tests/
-  test_progress.py
-  test_writer.py
-  test_auth.py
-  test_discovery.py
-  test_extractor.py
-  test_downloader.py
-```
-
----
-
-## Status das Tasks
+## Status: ✅ IMPLEMENTAÇÃO COMPLETA — 42 testes passando
 
 | Task | Status | Commit(s) | Notas |
 |------|--------|-----------|-------|
 | 1: Project Setup | ✅ DONE | f188729 | requirements.txt, .env.example, dirs, git init |
 | 2: Models + Config | ✅ DONE | b6e18e4 | Lesson, Comment, LessonContent, config.py |
-| 3: Progress Module | ✅ DONE | 6365fb8, a0d45d3 | TDD — 8 testes. Fix de write atômico adicionado |
-| 4: Writer Module | ✅ DONE | 0fb9d83, aae7ea3 | TDD — 11 testes. Fixes: slugify, trailing newline, multiline comments, constant |
-| 5: HTML Inspection | ✅ DONE | 8caca95 | Seletores reais descobertos — ver seção abaixo |
-| 6: Auth Module | ⏳ PENDING | — | Depende de selectors do Task 5 |
-| 7: Discovery Module | ⏳ PENDING | — | Depende de selectors do Task 5 |
-| 8: Extractor Module | ⏳ PENDING | — | Depende de selectors do Task 5 |
-| 9: Downloader Module | ⏳ PENDING | — | |
-| 10: Orchestrator | ⏳ PENDING | — | scraper.py — dry-run + full run |
+| 3: Progress Module | ✅ DONE | 6365fb8, a0d45d3 | TDD — 8 testes. Write atômico |
+| 4: Writer Module | ✅ DONE | 0fb9d83, aae7ea3 | TDD — 11 testes. Slugify, nota.md Obsidian |
+| 5: HTML Inspection | ✅ DONE | 8caca95 | Seletores reais confirmados — ver seção abaixo |
+| 6: Auth Module | ✅ DONE | d373093, f6b9a97 | TDD — 4 testes. Playwright login, cookies |
+| 7: Discovery Module | ✅ DONE | cec8d6b, 5e4a84e | TDD — 7 testes. Sidebar com 107 aulas |
+| 8: Extractor Module | ✅ DONE | 118633b, b03f7ba | TDD — 7 testes. Panda Video, comentários |
+| 9: Downloader Module | ✅ DONE | 6444b9f | TDD — 5 testes. yt-dlp wrapper |
+| 10: Orchestrator | ✅ DONE | b89a95e | scraper.py — CLI completo |
 
 ---
 
-## Decisões Técnicas Relevantes
+## Arquitetura
 
-- **Playwright retorna HTML renderizado** → BeautifulSoup faz o parsing (funções puras, testáveis sem browser)
-- **`progress.json`** usa write atômico (mkstemp + os.replace) para suportar Ctrl+C sem corromper arquivo
-- **TDD**: cada módulo tem testes antes da implementação
-- **Seletores CSS** das Tasks 6-8 são estimativas — **DEVEM ser ajustados após Task 5**
-- **Output**: `mentoria-american-dream/modulo-XX-nome/aula-XX-nome/{video.mp4,metadata.json,comentarios.json,nota.md}`
-
----
-
-## Seletores Reais (Task 5 — Concluída)
-
-### Auth
-- Email input: `input[type='email']`
-- Password input: `input[type='password']`
-- Submit: `button[type='submit']`
-- Post-login fragment: `/dashboard`
-
-### Discovery
-- **Estratégia**: Navegar para qualquer URL de aula (ex: `{COURSE_URL}/125393/707026`) → sidebar carrega 107 aulas
-- Sidebar container: `.videos .accordion.scroll`
-- Módulos na sidebar: `dl` (direto dentro do accordion — NÃO `dl.modulo-container`)
-- Título do módulo: `dl dt h3`
-- Links de aula: `dl dd div.item a[href*='mentoria-american-dream']`
-- Título da aula: `a li.aulabox h6` (ou `li h6` dentro do `a`)
-- URL completa: `BASE_URL + "/" + href.lstrip("/")`
-- Total: **6 módulos, 107 aulas**
-
-### Extractor (página de cada aula)
-- Título: `.videohead h6`
-- Descrição: `.videodesc`
-- Panda Video URL: `iframe.streaming-video-url` → atributo `data-original-url`
-  - (ou `iframe[data-streaming-video]`)
-- Comentários reais: `div.comment.comment-box[data-id]:not([data-id="{id}"])`
-  - Autor: `h4.name.text-truncate`
-  - Data: `p.time`
-  - Corpo: `p.commentdesc`
-- Sem comentários: elemento `.nocomments` presente com "Seja o primeiro a comentar"
-
-### Estrutura da sidebar (módulo/aula)
-```html
-<dl>
-  <dt><div class="head"><div class="content"><h3>Módulo X</h3></div></div></dt>
-  <dd>
-    <div class="item"><a href="curso/mentoria-american-dream/125393/LESSON_ID">
-      <li class="aulabox" data-aulaid="LESSON_ID">
-        <div class="item-titulo"><h6>Título da Aula</h6></div>
-      </li>
-    </a></div>
-  </dd>
-</dl>
+```
+scraper.py              → CLI + orquestrador (login → discovery → scrape → download → save)
+mad_scraper/
+  models.py             → Lesson, Comment, LessonContent (dataclasses)
+  config.py             → env loading, URL constants, HEADLESS flag
+  progress.py           → progress.json read/write atômico (resumabilidade)
+  auth.py               → Playwright login + cookie export (headless controlado por HEADLESS env)
+  discovery.py          → navega curso → list[Lesson] via sidebar
+  extractor.py          → navega aula → LessonContent (título, descrição, vídeo, comentários)
+  downloader.py         → yt-dlp wrapper com cookie file temporário
+  writer.py             → grava metadata.json, comentarios.json, nota.md (Obsidian)
+tests/
+  test_progress.py      → 8 testes
+  test_writer.py        → 11 testes
+  test_auth.py          → 4 testes
+  test_discovery.py     → 7 testes
+  test_extractor.py     → 7 testes
+  test_downloader.py    → 5 testes
 ```
 
-## Task 5 — Atenção Especial (Manual)
-
-Antes de implementar auth.py, discovery.py, extractor.py, é necessário rodar `inspect_site.py` com credenciais reais para descobrir os CSS selectors corretos. O plano inclui o script completo.
-
-**Credenciais necessárias:**
-- LOGIN_EMAIL: kadilo1@hotmail.com (já configurado)
-- LOGIN_PASSWORD: **requer input do usuário**
-
 ---
 
-## Como Usar (quando completo)
+## Como Usar
 
 ```bash
 # Instalar
@@ -122,18 +59,63 @@ playwright install chromium
 
 # Configurar
 cp .env.example .env
-# editar .env com credenciais
+# Editar .env com LOGIN_EMAIL, LOGIN_PASSWORD, OUTPUT_DIR
 
 # Rodar
 python scraper.py
 
-# Resumir após interrupção
+# Resumir após interrupção (Ctrl+C)
 python scraper.py
 
-# Retentar falhas
+# Retentar aulas com falha
 python scraper.py --retry-failed
+```
+
+**Variáveis .env:**
+```
+LOGIN_EMAIL=kadilo1@hotmail.com
+LOGIN_PASSWORD=...
+OUTPUT_DIR=mentoria-american-dream
+HEADLESS=false          # true para rodar sem browser visível (atenção: site pode bloquear)
 ```
 
 ---
 
-*Última atualização: Task 5 concluída — 2026-05-19*
+## Decisões Técnicas
+
+- **`progress.json`** usa write atômico (mkstemp + os.replace) para suportar Ctrl+C sem corromper
+- **`HEADLESS=false`** por padrão — site (astronmembers.com) bloqueia headless=True na página de login
+- **Discovery via sidebar**: navega para uma aula, extrai lista completa de 107 aulas da sidebar
+- **Texto-only lessons** (sem Panda Video iframe): marcadas como DONE normalmente (não falha)
+- **Output**: `mentoria-american-dream/modulo-XX-nome/aula-XX-nome/{video.mp4,metadata.json,comentarios.json,nota.md}`
+
+---
+
+## Seletores Confirmados (Task 5)
+
+### Auth
+- Email: `input[type='email']`
+- Senha: `input[type='password']`
+- Submit: `button[type='submit']`
+- Redirect pós-login: `/dashboard`
+
+### Discovery (sidebar da página de aula)
+- Container: `.videos .accordion.scroll`
+- Módulos: `dl` (filho direto do accordion)
+- Título do módulo: `dl dt h3`
+- Links de aula: `dl dd div.item a[href*='mentoria-american-dream']`
+- Título da aula: `li.aulabox h6`
+- Total: **6 módulos, 107 aulas**
+
+### Extractor
+- Título: `.videohead h6`
+- Descrição: `.videodesc`
+- Panda Video: `iframe.streaming-video-url[data-original-url]`
+- Comentários reais: `div.comment.comment-box` com `data-id` numérico (não `{id}`)
+  - Autor: `h4.name.text-truncate`
+  - Data: `p.time`
+  - Corpo: `p.commentdesc`
+
+---
+
+*Última atualização: ✅ COMPLETO — 2026-05-19*
