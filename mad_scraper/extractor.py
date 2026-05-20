@@ -113,7 +113,12 @@ def _get_attachments(soup: BeautifulSoup) -> list[Attachment]:
         if attachments:
             return attachments
 
-    # Fallback: heading-based search (legacy or other platforms)
+    # Secondary: any a[download] link on the page (tab panel loaded after click)
+    attachments = _collect_download_links(soup)
+    if attachments:
+        return attachments
+
+    # Fallback: heading-based search (legacy / other platforms)
     for heading in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"]):
         text = heading.get_text(strip=True).lower()
         if "anexo" in text or "arquivo" in text:

@@ -220,6 +220,19 @@ def run_anexos_only(speed_profile: str | None = None) -> None:
                 try:
                     page.goto(url)
                     page.wait_for_load_state("networkidle")
+
+                    # Click the Anexos tab to trigger dynamic panel load
+                    try:
+                        tab_btn = page.query_selector("button[data-aba='anexos']")
+                        if tab_btn:
+                            tab_btn.click()
+                            try:
+                                page.wait_for_selector("a.box-anexo-action-download", timeout=3000)
+                            except Exception:
+                                page.wait_for_timeout(1500)
+                    except Exception:
+                        pass
+
                     soup = BeautifulSoup(page.content(), "html.parser")
                     attachments = _get_attachments(soup)
 
