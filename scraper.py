@@ -159,7 +159,15 @@ def run(retry_failed: bool = False, speed_profile: str | None = None) -> None:
 
 
 def run_anexos_only(speed_profile: str | None = None) -> None:
-    """Download missing attachments for already-completed lessons only."""
+    """Download missing attachments for already-completed lessons only.
+
+    Reads metadata.json files on disk to reconstruct lesson dirs — no discovery
+    needed, so it works even when the course landing page has no sidebar links.
+    """
+    import json as _json
+    from bs4 import BeautifulSoup
+    from mad_scraper.extractor import _get_attachments
+
     progress_path = OUTPUT_DIR / "progress.json"
     done_urls = set(progress.get_done(progress_path))
 
@@ -171,8 +179,22 @@ def run_anexos_only(speed_profile: str | None = None) -> None:
         console.print("[red]✗ ERRO:[/red] LOGIN_EMAIL e LOGIN_PASSWORD não definidos no .env")
         sys.exit(1)
 
+    # Rebuild lesson dirs from local metadata.json — no network call needed
+    lessons: list[tuple] = []  # (lesson_dir, url, titulo)
+    for meta_path in sorted(OUTPUT_DIR.glob("*/*/metadata.json")):
+        try:
+            data = _json.loads(meta_path.read_text(encoding="utf-8"))
+            if data.get("url") in done_urls:
+                lessons.append((meta_path.parent, data["url"], data.get("titulo", meta_path.parent.name)))
+        except Exception:
+            pass
+
+    if not lessons:
+        console.print("[yellow]Nenhum metadata.json encontrado — rode o scraping completo primeiro.[/yellow]")
+        return
+
     console.print(Panel.fit("[bold]MAD Scraper[/bold] — Baixar Anexos Faltantes", style="bold blue"))
-    console.print(f"  Aulas concluídas: [green]{len(done_urls)}[/green]")
+    console.print(f"  Aulas a verificar: [green]{len(lessons)}[/green]")
     console.print()
 
     with console.status("[cyan]Fazendo login...[/cyan]"):
@@ -181,7 +203,10 @@ def run_anexos_only(speed_profile: str | None = None) -> None:
         except Exception as e:
             console.print(f"[red]✗ Login FALHOU:[/red] {e}")
             sys.exit(1)
-    console.print("[green]✓[/green] Login concluído")
+    console.print("[green]✓[/green] Login concluído\n")
+
+    downloaded = 0
+    skipped = 0
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=HEADLESS)
@@ -190,40 +215,27 @@ def run_anexos_only(speed_profile: str | None = None) -> None:
             ctx.add_cookies(cookies)
             page = ctx.new_page()
 
-            with console.status("[cyan]Descobrindo aulas...[/cyan]"):
+            for i, (lesson_dir, url, titulo) in enumerate(lessons, 1):
+                console.print(f"[dim][{i}/{len(lessons)}][/dim] {titulo[:60]}", end=" ")
                 try:
-                    all_lessons = discovery.get_lessons_with_page(COURSE_URL, page)
-                except Exception as e:
-                    console.print(f"[red]✗ Discovery FALHOU:[/red] {e}")
-                    sys.exit(1)
+                    page.goto(url)
+                    page.wait_for_load_state("networkidle")
+                    soup = BeautifulSoup(page.content(), "html.parser")
+                    attachments = _get_attachments(soup)
 
-            lessons = [l for l in all_lessons if l.url in done_urls]
-            console.print(f"[green]✓[/green] {len(lessons)} aulas concluídas para verificar anexos")
-            console.print()
-
-            downloaded = 0
-            skipped = 0
-
-            for i, lesson in enumerate(lessons, 1):
-                console.print(f"[dim][{i}/{len(lessons)}][/dim] {lesson.titulo[:60]}", end=" ")
-                try:
-                    content = extractor.extract_with_page(lesson, page)
-                    if not content.anexos:
+                    if not attachments:
                         console.print("[dim]sem anexos[/dim]")
                         continue
 
-                    lesson_dir = writer._lesson_dir(content, OUTPUT_DIR)
                     anexos_dir = lesson_dir / "anexos"
                     new_files = 0
-
-                    for att in content.anexos:
+                    for att in attachments:
                         filename = att.url.split("/")[-1].split("?")[0] or att.nome
                         dest = anexos_dir / filename
                         if dest.exists():
                             skipped += 1
                             continue
-                        ok = downloader.download_attachment(att.url, anexos_dir, cookies)
-                        if ok:
+                        if downloader.download_attachment(att.url, anexos_dir, cookies):
                             downloaded += 1
                             new_files += 1
 
