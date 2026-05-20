@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 
@@ -19,9 +19,16 @@ class Comment:
 
 
 @dataclass
+class Attachment:
+    nome: str
+    url: str
+
+
+@dataclass
 class LessonContent:
     lesson: Lesson
     descricao: str
     comentarios: list[Comment]
     panda_embed_url: str
     duracao_segundos: Optional[int] = None
+    anexos: list[Attachment] = field(default_factory=list)

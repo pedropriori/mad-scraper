@@ -2,7 +2,7 @@
 import json
 import pytest
 from pathlib import Path
-from mad_scraper.models import Lesson, Comment, LessonContent
+from mad_scraper.models import Lesson, Comment, LessonContent, Attachment
 from mad_scraper import writer
 
 
@@ -105,3 +105,17 @@ def test_slugify_handles_accents():
 
 def test_slugify_handles_special_chars():
     assert writer._slugify("Aula: Estratégia & Copywriting!") == "aula-estrategia-copywriting"
+
+
+def test_lesson_content_defaults_anexos_to_empty_list():
+    lesson = Lesson(
+        url="http://x.com", titulo="T", modulo="M", modulo_index=1, aula_index=1
+    )
+    content = LessonContent(lesson=lesson, descricao="", comentarios=[], panda_embed_url="")
+    assert content.anexos == []
+
+
+def test_attachment_dataclass_fields():
+    att = Attachment(nome="apostila.pdf", url="https://cdn.example.com/apostila.pdf")
+    assert att.nome == "apostila.pdf"
+    assert att.url == "https://cdn.example.com/apostila.pdf"
