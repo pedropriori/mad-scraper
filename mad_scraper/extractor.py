@@ -3,12 +3,11 @@ from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 
 from .config import HEADLESS
-from .models import Lesson, LessonContent, Comment
+from .models import Lesson, LessonContent, Comment, Attachment
 
 TEMPLATE_COMMENT_ID = "{id}"
-
-
 _QUALITY_PREF = ["1080p", "720p", "480p", "360p"]
+_ATTACHMENT_EXTS = {".pdf", ".zip", ".docx", ".xlsx", ".pptx", ".mp3", ".csv"}
 
 
 def extract_with_page(lesson: Lesson, page) -> LessonContent:
@@ -30,7 +29,7 @@ def extract_with_page(lesson: Lesson, page) -> LessonContent:
         page.wait_for_load_state("networkidle")
         try:
             page.wait_for_selector("iframe.streaming-video-url", timeout=10000)
-            page.wait_for_timeout(3000)  # wait for player to request quality streams
+            page.wait_for_timeout(3000)
         except Exception as e:
             logging.debug("Video iframe not found (text-only?): %s", e)
         html = page.content()
@@ -71,6 +70,7 @@ def _parse_html(html: str, lesson: Lesson) -> LessonContent:
         descricao=_get_description(soup),
         comentarios=_get_comments(soup),
         panda_embed_url=_get_panda_url(soup),
+        anexos=_get_attachments(soup),
     )
 
 
@@ -102,3 +102,33 @@ def _get_comments(soup: BeautifulSoup) -> list[Comment]:
         if texto:
             comments.append(Comment(autor=autor, data=data, texto=texto))
     return comments
+
+
+def _get_attachments(soup: BeautifulSoup) -> list[Attachment]:
+    """Find downloadable attachments in an 'Anexos'/'Arquivos' section."""
+    for heading in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"]):
+        text = heading.get_text(strip=True).lower()
+        if "anexo" in text or "arquivo" in text:
+            container = heading.parent
+            attachments = _collect_file_links(container)
+            if attachments:
+                return attachments
+
+    # Fallback: search within the lesson content area only
+    content_el = soup.select_one(".videodesc")
+    if content_el:
+        parent = content_el.parent or content_el
+        return _collect_file_links(parent)
+
+    return []
+
+
+def _collect_file_links(container) -> list[Attachment]:
+    attachments = []
+    for link in container.find_all("a", href=True):
+        href = link.get("href", "")
+        href_lower = href.lower().split("?")[0]
+        if any(href_lower.endswith(ext) for ext in _ATTACHMENT_EXTS):
+            nome = link.get_text(strip=True) or href.split("/")[-1]
+            attachments.append(Attachment(nome=nome, url=href))
+    return attachments

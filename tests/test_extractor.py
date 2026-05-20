@@ -1,6 +1,6 @@
 import pytest
 from mad_scraper import extractor
-from mad_scraper.models import Lesson
+from mad_scraper.models import Lesson, Attachment
 
 # Mock HTML matching REAL site structure from Task 5 inspection
 MOCK_HTML_WITH_VIDEO_AND_COMMENTS = """
@@ -101,3 +101,49 @@ def test_parse_preserves_lesson_reference():
     lesson = _lesson()
     content = extractor._parse_html(MOCK_HTML_WITH_VIDEO_AND_COMMENTS, lesson)
     assert content.lesson is lesson
+
+
+MOCK_HTML_WITH_ANEXOS = """
+<html><body>
+  <div class="videohead"><h6>Aula com Anexos</h6></div>
+  <div class="videodesc">Descrição da aula.</div>
+  <iframe class="streaming-video-url"
+          data-original-url="https://player.pandavideo.com.br/embed/?v=xyz">
+  </iframe>
+  <div class="lesson-body">
+    <h3>Anexos</h3>
+    <ul>
+      <li><a href="https://cdn.example.com/apostila.pdf">Apostila do Módulo</a></li>
+      <li><a href="https://cdn.example.com/swipe-file.zip">Swipe File</a></li>
+    </ul>
+  </div>
+</body></html>
+"""
+
+MOCK_HTML_NO_ANEXOS = """
+<html><body>
+  <div class="videohead"><h6>Aula Sem Anexos</h6></div>
+  <div class="videodesc">Só descrição aqui.</div>
+  <iframe class="streaming-video-url"
+          data-original-url="https://player.pandavideo.com.br/embed/?v=xyz">
+  </iframe>
+</body></html>
+"""
+
+
+def test_parse_returns_attachments_when_present():
+    content = extractor._parse_html(MOCK_HTML_WITH_ANEXOS, _lesson())
+    assert len(content.anexos) == 2
+    assert content.anexos[0].nome == "Apostila do Módulo"
+    assert "apostila.pdf" in content.anexos[0].url
+
+
+def test_parse_returns_empty_attachments_when_no_section():
+    content = extractor._parse_html(MOCK_HTML_NO_ANEXOS, _lesson())
+    assert content.anexos == []
+
+
+def test_get_attachments_empty_html():
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup("<html><body><p>Sem anexos</p></body></html>", "html.parser")
+    assert extractor._get_attachments(soup) == []
