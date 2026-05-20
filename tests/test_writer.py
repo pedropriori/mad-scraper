@@ -119,3 +119,32 @@ def test_attachment_dataclass_fields():
     att = Attachment(nome="apostila.pdf", url="https://cdn.example.com/apostila.pdf")
     assert att.nome == "apostila.pdf"
     assert att.url == "https://cdn.example.com/apostila.pdf"
+
+
+def _content_with_anexos(**kwargs):
+    base = _content(**kwargs)
+    base.anexos = [
+        Attachment(nome="Apostila.pdf", url="https://cdn.example.com/apostila.pdf"),
+        Attachment(nome="Swipe File.zip", url="https://cdn.example.com/swipe-file.zip"),
+    ]
+    return base
+
+
+def test_nota_md_has_anexos_section(tmp_path):
+    lesson_dir = writer.write_lesson(_content_with_anexos(), tmp_path)
+    text = (lesson_dir / "nota.md").read_text(encoding="utf-8")
+    assert "## Anexos" in text
+    assert "Apostila.pdf" in text
+    assert "Swipe File.zip" in text
+
+
+def test_nota_md_no_anexos_section_when_empty(tmp_path):
+    lesson_dir = writer.write_lesson(_content(), tmp_path)
+    text = (lesson_dir / "nota.md").read_text(encoding="utf-8")
+    assert "## Anexos" not in text
+
+
+def test_nota_md_anexos_links_are_relative(tmp_path):
+    lesson_dir = writer.write_lesson(_content_with_anexos(), tmp_path)
+    text = (lesson_dir / "nota.md").read_text(encoding="utf-8")
+    assert "anexos/apostila.pdf" in text  # filename derived from URL (lowercase)

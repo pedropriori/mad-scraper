@@ -6,8 +6,6 @@ from pathlib import Path
 
 from .models import LessonContent
 
-_CURSO_NAME = "Mentoria American Dream"
-
 
 def write_lesson(content: LessonContent, output_dir: Path) -> Path:
     lesson_dir = _lesson_dir(content, output_dir)
@@ -30,7 +28,7 @@ def _write_metadata(content: LessonContent, lesson_dir: Path) -> None:
         "modulo": content.lesson.modulo,
         "modulo_index": content.lesson.modulo_index,
         "aula_index": content.lesson.aula_index,
-        "curso": _CURSO_NAME,
+        "curso": "Mentoria American Dream",
         "url": content.lesson.url,
         "data_download": datetime.now().isoformat(timespec="seconds"),
         "duracao_segundos": content.duracao_segundos,
@@ -53,7 +51,7 @@ def _write_nota(content: LessonContent, lesson_dir: Path) -> None:
         "---",
         f'titulo: "{content.lesson.titulo}"',
         f'modulo: "{content.lesson.modulo}"',
-        f'curso: "{_CURSO_NAME}"',
+        'curso: "Mentoria American Dream"',
         f'data_download: "{datetime.now().date()}"',
         f'url: "{content.lesson.url}"',
         f"tags: [mentoria, american-dream, {modulo_tag}]",
@@ -67,9 +65,13 @@ def _write_nota(content: LessonContent, lesson_dir: Path) -> None:
     if content.comentarios:
         lines += ["", "## Comentários"]
         for c in content.comentarios:
-            quoted = "\n".join(f"> {line}" for line in c.texto.splitlines())
-            lines += ["", f"**{c.autor}** · {c.data}", quoted]
-    (lesson_dir / "nota.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+            lines += ["", f"**{c.autor}** · {c.data}", f"> {c.texto}"]
+    if content.anexos:
+        lines += ["", "## Anexos"]
+        for a in content.anexos:
+            filename = a.url.split("/")[-1].split("?")[0] or a.nome
+            lines.append(f"- [{a.nome}](anexos/{filename})")
+    (lesson_dir / "nota.md").write_text("\n".join(lines), encoding="utf-8")
 
 
 def _slugify(text: str) -> str:
