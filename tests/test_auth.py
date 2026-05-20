@@ -57,3 +57,22 @@ def test_cookies_to_netscape_format():
     assert parts[4] == "9999999999"
     assert parts[5] == "sid"
     assert parts[6] == "xyz"
+
+
+def test_login_respects_auth_headless_flag(tmp_path):
+    cookies_path = tmp_path / "cookies.json"
+    mock_context = MagicMock()
+    mock_context.cookies.return_value = [_cookie()]
+    mock_page = MagicMock()
+    mock_page.context = mock_context
+    mock_browser = MagicMock()
+    mock_browser.new_page.return_value = mock_page
+    mock_pw = MagicMock()
+    mock_pw.chromium.launch.return_value = mock_browser
+
+    with patch("mad_scraper.auth.sync_playwright") as mock_sp, \
+         patch("mad_scraper.auth.AUTH_HEADLESS", False):
+        mock_sp.return_value.__enter__.return_value = mock_pw
+        auth.login("user@email.com", "pass", cookies_path)
+
+    mock_pw.chromium.launch.assert_called_once_with(headless=False)
