@@ -158,6 +158,91 @@ def run(retry_failed: bool = False, speed_profile: str | None = None) -> None:
         console.print(f"[bold green]Concluído:[/bold green] {ok}/{total} OK — tudo certo!")
 
 
+def run_anexos_only(speed_profile: str | None = None) -> None:
+    """Download missing attachments for already-completed lessons only."""
+    progress_path = OUTPUT_DIR / "progress.json"
+    done_urls = set(progress.get_done(progress_path))
+
+    if not done_urls:
+        console.print("[yellow]Nenhuma aula concluída em progress.json — rode o scraping completo primeiro.[/yellow]")
+        return
+
+    if not LOGIN_EMAIL or not LOGIN_PASSWORD:
+        console.print("[red]✗ ERRO:[/red] LOGIN_EMAIL e LOGIN_PASSWORD não definidos no .env")
+        sys.exit(1)
+
+    console.print(Panel.fit("[bold]MAD Scraper[/bold] — Baixar Anexos Faltantes", style="bold blue"))
+    console.print(f"  Aulas concluídas: [green]{len(done_urls)}[/green]")
+    console.print()
+
+    with console.status("[cyan]Fazendo login...[/cyan]"):
+        try:
+            cookies = auth.login(LOGIN_EMAIL, LOGIN_PASSWORD, COOKIES_PATH)
+        except Exception as e:
+            console.print(f"[red]✗ Login FALHOU:[/red] {e}")
+            sys.exit(1)
+    console.print("[green]✓[/green] Login concluído")
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=HEADLESS)
+        try:
+            ctx = browser.new_context()
+            ctx.add_cookies(cookies)
+            page = ctx.new_page()
+
+            with console.status("[cyan]Descobrindo aulas...[/cyan]"):
+                try:
+                    all_lessons = discovery.get_lessons_with_page(COURSE_URL, page)
+                except Exception as e:
+                    console.print(f"[red]✗ Discovery FALHOU:[/red] {e}")
+                    sys.exit(1)
+
+            lessons = [l for l in all_lessons if l.url in done_urls]
+            console.print(f"[green]✓[/green] {len(lessons)} aulas concluídas para verificar anexos")
+            console.print()
+
+            downloaded = 0
+            skipped = 0
+
+            for i, lesson in enumerate(lessons, 1):
+                console.print(f"[dim][{i}/{len(lessons)}][/dim] {lesson.titulo[:60]}", end=" ")
+                try:
+                    content = extractor.extract_with_page(lesson, page)
+                    if not content.anexos:
+                        console.print("[dim]sem anexos[/dim]")
+                        continue
+
+                    lesson_dir = writer._lesson_dir(content, OUTPUT_DIR)
+                    anexos_dir = lesson_dir / "anexos"
+                    new_files = 0
+
+                    for att in content.anexos:
+                        filename = att.url.split("/")[-1].split("?")[0] or att.nome
+                        dest = anexos_dir / filename
+                        if dest.exists():
+                            skipped += 1
+                            continue
+                        ok = downloader.download_attachment(att.url, anexos_dir, cookies)
+                        if ok:
+                            downloaded += 1
+                            new_files += 1
+
+                    if new_files:
+                        console.print(f"[green]+{new_files} baixado(s)[/green]")
+                    else:
+                        console.print("[dim]já completo[/dim]")
+
+                except Exception as e:
+                    console.print(f"[red]erro: {e}[/red]")
+
+        finally:
+            browser.close()
+
+    console.print()
+    console.rule()
+    console.print(f"[bold]Concluído:[/bold] {downloaded} anexo(s) baixado(s), {skipped} já existiam")
+
+
 if __name__ == "__main__":
     speed = None
     args = sys.argv[1:]
@@ -165,7 +250,10 @@ if __name__ == "__main__":
         idx = args.index("--speed")
         if idx + 1 < len(args):
             speed = args[idx + 1]
-    run(
-        retry_failed="--retry-failed" in sys.argv,
-        speed_profile=speed,
-    )
+    if "--anexos-only" in args:
+        run_anexos_only(speed_profile=speed)
+    else:
+        run(
+            retry_failed="--retry-failed" in args,
+            speed_profile=speed,
+        )

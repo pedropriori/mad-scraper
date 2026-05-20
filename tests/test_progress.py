@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 from mad_scraper import progress
-from mad_scraper.progress import Status
+from mad_scraper.progress import Status, get_done
 
 
 def test_load_returns_empty_dict_if_no_file(tmp_path):
@@ -53,3 +53,14 @@ def test_mark_overwrites_existing_status(tmp_path):
     progress.mark(p, "https://example.com/aula-1", Status.FAILED)
     progress.mark(p, "https://example.com/aula-1", Status.DONE)
     assert progress.is_done(p, "https://example.com/aula-1") is True
+
+
+def test_get_done_returns_done_urls(tmp_path):
+    p = tmp_path / "progress.json"
+    progress.mark(p, "http://a.com/done", Status.DONE)
+    progress.mark(p, "http://b.com/failed", Status.FAILED)
+    progress.mark(p, "http://c.com/done2", Status.DONE)
+    done = get_done(p)
+    assert "http://a.com/done" in done
+    assert "http://c.com/done2" in done
+    assert "http://b.com/failed" not in done

@@ -116,6 +116,10 @@ def main() -> None:
             choices.append(questionary.Choice(
                 f"  Retentar aulas com falha ({summary['failed']})", value="retry"
             ))
+        if summary["done"] > 0:
+            choices.append(questionary.Choice(
+                f"  Baixar anexos faltantes ({summary['done']} aulas)", value="anexos"
+            ))
         choices += [
             questionary.Choice("  Ver progresso atual", value="progress"),
             questionary.Choice("  Configuracoes de download", value="speed"),
@@ -136,6 +140,11 @@ def main() -> None:
             console.print()
             from scraper import run
             run(retry_failed=True, speed_profile=speed_profile)
+            break
+        elif action == "anexos":
+            console.print()
+            from scraper import run_anexos_only
+            run_anexos_only(speed_profile=speed_profile)
             break
         elif action == "progress":
             console.print()

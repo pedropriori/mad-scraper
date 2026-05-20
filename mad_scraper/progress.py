@@ -44,3 +44,11 @@ def get_failed(progress_path: Path) -> list[str]:
         for url, status in load(progress_path).items()
         if status == Status.FAILED.value
     ]
+
+
+def get_done(progress_path: Path) -> list[str]:
+    return [
+        url
+        for url, status in load(progress_path).items()
+        if status == Status.DONE.value
+    ]
