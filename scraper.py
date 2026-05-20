@@ -125,7 +125,7 @@ def run(retry_failed: bool = False, speed_profile: str | None = None) -> None:
                             dash.refresh()
                             anexos_dir = lesson_dir / "anexos"
                             for att in content.anexos:
-                                downloader.download_attachment(att.url, anexos_dir, cookies)
+                                downloader.download_attachment(att.url, anexos_dir, cookies, filename=att.filename)
 
                         dur = int(time.time() - start)
                         if success:
@@ -230,12 +230,12 @@ def run_anexos_only(speed_profile: str | None = None) -> None:
                     anexos_dir = lesson_dir / "anexos"
                     new_files = 0
                     for att in attachments:
-                        filename = att.url.split("/")[-1].split("?")[0] or att.nome
+                        filename = att.filename or att.url.split("/")[-1].split("?")[0] or att.nome
                         dest = anexos_dir / filename
                         if dest.exists():
                             skipped += 1
                             continue
-                        if downloader.download_attachment(att.url, anexos_dir, cookies):
+                        if downloader.download_attachment(att.url, anexos_dir, cookies, filename=filename):
                             downloaded += 1
                             new_files += 1
 

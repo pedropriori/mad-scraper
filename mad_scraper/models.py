@@ -22,6 +22,7 @@ class Comment:
 class Attachment:
     nome: str
     url: str
+    filename: str = ""  # actual filename with extension (from download= attribute)
 
 
 @dataclass

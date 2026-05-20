@@ -59,11 +59,12 @@ def download_attachment(
     url: str,
     dest_dir: Path,
     cookies: list[dict],
+    filename: str = "",
     retries: int = 2,
 ) -> bool:
     dest_dir.mkdir(parents=True, exist_ok=True)
-    filename = url.split("/")[-1].split("?")[0] or "anexo"
-    dest_path = dest_dir / filename
+    actual_filename = filename or url.split("/")[-1].split("?")[0] or "anexo"
+    dest_path = dest_dir / actual_filename
     session_cookies = {c["name"]: c["value"] for c in cookies}
     headers = {"Referer": _REFERER}
     for attempt in range(retries + 1):

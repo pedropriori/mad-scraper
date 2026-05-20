@@ -69,7 +69,7 @@ def _write_nota(content: LessonContent, lesson_dir: Path) -> None:
     if content.anexos:
         lines += ["", "## Anexos"]
         for a in content.anexos:
-            filename = a.url.split("/")[-1].split("?")[0] or a.nome
+            filename = a.filename or a.url.split("/")[-1].split("?")[0] or a.nome
             lines.append(f"- [{a.nome}](anexos/{filename})")
     (lesson_dir / "nota.md").write_text("\n".join(lines), encoding="utf-8")
 

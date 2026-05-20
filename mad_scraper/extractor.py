@@ -2,7 +2,7 @@ import logging
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 
-from .config import HEADLESS
+from .config import BASE_URL, HEADLESS
 from .models import Lesson, LessonContent, Comment, Attachment
 
 TEMPLATE_COMMENT_ID = "{id}"
@@ -106,6 +106,14 @@ def _get_comments(soup: BeautifulSoup) -> list[Comment]:
 
 def _get_attachments(soup: BeautifulSoup) -> list[Attachment]:
     """Find downloadable attachments in an 'Anexos'/'Arquivos' section."""
+    # Primary: dedicated anexos panel (astronmembers.com tab structure)
+    panel = soup.select_one(".aba-anexos")
+    if panel:
+        attachments = _collect_download_links(panel)
+        if attachments:
+            return attachments
+
+    # Fallback: heading-based search (legacy or other platforms)
     for heading in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"]):
         text = heading.get_text(strip=True).lower()
         if "anexo" in text or "arquivo" in text:
@@ -114,13 +122,31 @@ def _get_attachments(soup: BeautifulSoup) -> list[Attachment]:
             if attachments:
                 return attachments
 
-    # Fallback: search within the lesson content area only
     content_el = soup.select_one(".videodesc")
     if content_el:
         parent = content_el.parent or content_el
         return _collect_file_links(parent)
 
     return []
+
+
+def _collect_download_links(panel) -> list[Attachment]:
+    """Collect attachments from the .aba-anexos tab panel (astronmembers.com format)."""
+    attachments = []
+    for link in panel.select("a.box-anexo-action-download"):
+        href = link.get("href", "")
+        if not href:
+            continue
+        url = href if href.startswith("http") else f"{BASE_URL}/{href.lstrip('/')}"
+        filename = link.get("download", "") or href.split("/")[-1].split("?")[0]
+        box = link.find_parent(class_="box-anexo")
+        if box:
+            nome_el = box.select_one(".box-anexo-text p")
+            nome = nome_el.get_text(strip=True) if nome_el else filename
+        else:
+            nome = filename
+        attachments.append(Attachment(nome=nome, url=url, filename=filename))
+    return attachments
 
 
 def _collect_file_links(container) -> list[Attachment]:

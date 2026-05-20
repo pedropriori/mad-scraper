@@ -147,3 +147,38 @@ def test_get_attachments_empty_html():
     from bs4 import BeautifulSoup
     soup = BeautifulSoup("<html><body><p>Sem anexos</p></body></html>", "html.parser")
     assert extractor._get_attachments(soup) == []
+
+
+MOCK_HTML_ABA_ANEXOS = """
+<html><body>
+  <div class="videohead"><h6>Aula com Painel Anexos</h6></div>
+  <div class="videodesc">Descrição.</div>
+  <div class="curso-aba aba-anexos">
+    <div class="lista-anexos">
+      <div class="box-anexo">
+        <a class="box-anexo-main colorbox" href="curso-anexo-viewer/1/2/3">
+          <div class="box-anexo-text">
+            <p>O que eu faria começando do zero</p>
+            <p><span>pdf</span> <b>- 1MB</b></p>
+          </div>
+        </a>
+        <a class="box-anexo-action box-anexo-action-download"
+           download="comecando-do-zero.pdf"
+           href="curso-anexo/1/2/3?download=true">
+        </a>
+      </div>
+    </div>
+  </div>
+</body></html>
+"""
+
+
+def test_get_attachments_aba_panel_format():
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(MOCK_HTML_ABA_ANEXOS, "html.parser")
+    result = extractor._get_attachments(soup)
+    assert len(result) == 1
+    assert result[0].nome == "O que eu faria começando do zero"
+    assert result[0].filename == "comecando-do-zero.pdf"
+    assert "curso-anexo/1/2/3" in result[0].url
+    assert result[0].url.startswith("http")

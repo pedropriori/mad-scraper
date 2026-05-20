@@ -95,7 +95,25 @@ def test_download_attachment_creates_file(tmp_path):
         mock_resp.raise_for_status.return_value = None
         mock_get.return_value = mock_resp
         result = downloader.download_attachment(
-            "https://cdn.example.com/apostila.pdf", tmp_path / "anexos", COOKIES
+            "https://cdn.example.com/curso-anexo/1/2/3?download=true",
+            tmp_path / "anexos",
+            COOKIES,
+            filename="apostila.pdf",
+        )
+    assert result is True
+    assert (tmp_path / "anexos" / "apostila.pdf").exists()
+
+
+def test_download_attachment_filename_derived_from_url(tmp_path):
+    with patch("mad_scraper.downloader.requests.get") as mock_get:
+        mock_resp = MagicMock()
+        mock_resp.iter_content.return_value = [b"data"]
+        mock_resp.raise_for_status.return_value = None
+        mock_get.return_value = mock_resp
+        result = downloader.download_attachment(
+            "https://cdn.example.com/apostila.pdf",
+            tmp_path / "anexos",
+            COOKIES,
         )
     assert result is True
     assert (tmp_path / "anexos" / "apostila.pdf").exists()
