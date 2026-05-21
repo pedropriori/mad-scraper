@@ -53,7 +53,8 @@ def run(retry_failed: bool = False, speed_profile: str | None = None) -> None:
     console.print("[green]✓[/green] Login concluído")
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=HEADLESS)
+        _args = ["--window-position=-32000,-32000"] if HEADLESS else []
+        browser = p.chromium.launch(headless=False, args=_args)
         try:
             ctx = browser.new_context()
             ctx.add_cookies(cookies)
@@ -125,7 +126,7 @@ def run(retry_failed: bool = False, speed_profile: str | None = None) -> None:
                             dash.refresh()
                             anexos_dir = lesson_dir / "anexos"
                             for att in content.anexos:
-                                downloader.download_attachment(att.url, anexos_dir, cookies, filename=att.filename)
+                                downloader.download_attachment_with_context(att.url, anexos_dir, ctx, filename=att.filename)
 
                         dur = int(time.time() - start)
                         if success:
@@ -209,7 +210,8 @@ def run_anexos_only(speed_profile: str | None = None) -> None:
     skipped = 0
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=HEADLESS)
+        _args = ["--window-position=-32000,-32000"] if HEADLESS else []
+        browser = p.chromium.launch(headless=False, args=_args)
         try:
             ctx = browser.new_context()
             ctx.add_cookies(cookies)
@@ -248,7 +250,7 @@ def run_anexos_only(speed_profile: str | None = None) -> None:
                         if dest.exists():
                             skipped += 1
                             continue
-                        if downloader.download_attachment(att.url, anexos_dir, cookies, filename=filename):
+                        if downloader.download_attachment_with_context(att.url, anexos_dir, page.context, filename=filename):
                             downloaded += 1
                             new_files += 1
 
