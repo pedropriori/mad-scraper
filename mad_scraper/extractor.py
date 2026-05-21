@@ -46,7 +46,8 @@ def extract_with_page(lesson: Lesson, page) -> LessonContent:
 
 def extract(lesson: Lesson, cookies: list[dict]) -> LessonContent:
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=HEADLESS)
+        _args = ["--window-position=-32000,-32000"] if HEADLESS else []
+        browser = p.chromium.launch(headless=False, args=_args)
         try:
             context = browser.new_context()
             context.add_cookies(cookies)
