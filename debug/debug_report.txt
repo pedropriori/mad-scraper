@@ -1,0 +1,19 @@
+
+=== BEFORE clicking Anexos tab ===
+div.aba-anexos present: True
+  inner HTML (500): <div class="curso-aba aba-anexos content-bg flex-item flex-container-col"><div class="lista-anexos flex-container flex-align-left"><!-- anexo item --><div class="box-anexo flex-container flex-stretch flex-nowrap"><a class="box-anexo-main flex-item flex-container flex-align-left colorbox cboxElement" data-height="1000" data-width="1333" href="curso-anexo-viewer/125393/703533/156100"><div class="box-anexo-icon flex-container flex-item"><i class="fas fa-file"></i></div><div class="flex-container fl
+button[data-aba=anexos] present: True
+  button HTML: <button class="aba" data-aba="anexos"><p>Anexos</p><div class="ballon" data-qtd="  1  "></div></button>
+a.box-anexo-action-download count: 1
+  [0] href='curso-anexo/125393/703533/156100?download=true'  download='o-que-eu-faria-se-estivesse-comecando-do-zero.pdf'
+All button.aba tabs: ['descricao', 'comentarios', 'anexos']
+div.curso-aba panels: [['aba-descricao', 'curso-aba', 'active', 'content-bg', 'flex-item', 'flex-container-col'], ['curso-aba', 'aba-anexos', 'content-bg', 'flex-item', 'flex-container-col'], ['nocomments', 'curso-aba', 'aba-comentarios', 'flex-item', 'show'], ['curso-aba', 'aba-comentarios']]
+=== AFTER clicking Anexos tab ===
+div.aba-anexos present: True
+  inner HTML (500): <div class="curso-aba aba-anexos content-bg flex-item flex-container-col active"><div class="lista-anexos flex-container flex-align-left"><!-- anexo item --><div class="box-anexo flex-container flex-stretch flex-nowrap"><a class="box-anexo-main flex-item flex-container flex-align-left colorbox cboxElement" data-height="1000" data-width="1333" href="curso-anexo-viewer/125393/703533/156100"><div class="box-anexo-icon flex-container flex-item"><i class="fas fa-file"></i></div><div class="flex-conta
+button[data-aba=anexos] present: True
+  button HTML: <button class="aba active" data-aba="anexos"><p>Anexos</p><div class="ballon" data-qtd="  1  "></div></button>
+a.box-anexo-action-download count: 1
+  [0] href='curso-anexo/125393/703533/156100?download=true'  download='o-que-eu-faria-se-estivesse-comecando-do-zero.pdf'
+All button.aba tabs: ['descricao', 'comentarios', 'anexos']
+div.curso-aba panels: [['aba-descricao', 'curso-aba', 'content-bg', 'flex-item', 'flex-container-col'], ['curso-aba', 'aba-anexos', 'content-bg', 'flex-item', 'flex-container-col', 'active'], ['nocomments', 'curso-aba', 'aba-comentarios', 'flex-item', 'show'], ['curso-aba', 'aba-comentarios']]
