@@ -126,3 +126,60 @@ def test_download_attachment_returns_false_on_error(tmp_path):
             "https://cdn.example.com/arquivo.pdf", tmp_path / "anexos", COOKIES
         )
     assert result is False
+
+
+def _mock_context(ok: bool = True, body: bytes = b"pdf content", raises: bool = False):
+    resp = MagicMock()
+    resp.ok = ok
+    resp.body.return_value = body
+    ctx = MagicMock()
+    if raises:
+        ctx.request.get.side_effect = Exception("network error")
+    else:
+        ctx.request.get.return_value = resp
+    return ctx
+
+
+def test_download_attachment_with_context_creates_file(tmp_path):
+    ctx = _mock_context(ok=True, body=b"pdf content")
+    result = downloader.download_attachment_with_context(
+        "https://mentoriaamericandr.astronmembers.com/curso-anexo/1/2/3?download=true",
+        tmp_path / "anexos",
+        ctx,
+        filename="apostila.pdf",
+    )
+    assert result is True
+    assert (tmp_path / "anexos" / "apostila.pdf").read_bytes() == b"pdf content"
+
+
+def test_download_attachment_with_context_returns_false_on_403(tmp_path):
+    ctx = _mock_context(ok=False)
+    result = downloader.download_attachment_with_context(
+        "https://mentoriaamericandr.astronmembers.com/curso-anexo/1/2/3?download=true",
+        tmp_path / "anexos",
+        ctx,
+        filename="arquivo.pdf",
+    )
+    assert result is False
+
+
+def test_download_attachment_with_context_returns_false_on_exception(tmp_path):
+    ctx = _mock_context(raises=True)
+    result = downloader.download_attachment_with_context(
+        "https://mentoriaamericandr.astronmembers.com/curso-anexo/1/2/3?download=true",
+        tmp_path / "anexos",
+        ctx,
+        filename="arquivo.pdf",
+    )
+    assert result is False
+
+
+def test_download_attachment_with_context_filename_from_url(tmp_path):
+    ctx = _mock_context(ok=True, body=b"data")
+    result = downloader.download_attachment_with_context(
+        "https://mentoriaamericandr.astronmembers.com/curso-anexo/1/2/apostila.pdf",
+        tmp_path / "anexos",
+        ctx,
+    )
+    assert result is True
+    assert (tmp_path / "anexos" / "apostila.pdf").exists()

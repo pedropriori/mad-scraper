@@ -1,3 +1,4 @@
+import logging
 import yt_dlp
 import requests
 from pathlib import Path
@@ -5,6 +6,8 @@ from typing import Callable, Optional
 
 from .auth import cookies_to_netscape
 from .config import CONCURRENT_FRAGMENTS
+
+log = logging.getLogger(__name__)
 
 _REFERER = "https://mentoriaamericandr.astronmembers.com"
 
@@ -55,6 +58,66 @@ def download_video(
         cookies_file.unlink(missing_ok=True)
 
 
+def download_attachment_with_context(
+    url: str,
+    dest_dir: Path,
+    context,
+    filename: str = "",
+    retries: int = 2,
+) -> bool:
+    """Download attachment via Playwright BrowserContext.
+
+    Uses context.request.get() first (fast, no navigation). If the server
+    returns 403/302/401, falls back to page-based download which triggers
+    the browser's native download handler — this works on servers that
+    require full browser navigation for download URLs (like astronmembers).
+    """
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    actual_filename = filename or url.split("/")[-1].split("?")[0] or "anexo"
+    dest_path = dest_dir / actual_filename
+
+    # Strategy 1: context.request (fast, no page navigation)
+    for attempt in range(retries + 1):
+        try:
+            response = context.request.get(url, headers={"Referer": _REFERER})
+            if response.ok:
+                body = response.body()
+                # Sanity check: a real file should be >200 bytes and not HTML
+                ct = response.headers.get("content-type", "")
+                if len(body) > 200 and "text/html" not in ct:
+                    dest_path.write_bytes(body)
+                    log.debug("Attachment downloaded via context.request: %s (%d bytes)", actual_filename, len(body))
+                    return True
+                else:
+                    log.debug("context.request returned HTML or tiny body (%d bytes, ct=%s) — will try page-based download", len(body), ct)
+                    break  # don't retry, go to fallback
+            else:
+                log.debug("context.request returned status %d for %s (attempt %d)", response.status, actual_filename, attempt + 1)
+        except Exception as e:
+            log.debug("context.request error for %s (attempt %d): %s", actual_filename, attempt + 1, e)
+        if attempt == retries:
+            break
+
+    # Strategy 2: page-based download (browser navigates to URL → triggers download)
+    log.debug("Trying page-based download for: %s", actual_filename)
+    try:
+        page = context.new_page()
+        try:
+            with page.expect_download(timeout=30000) as dl_info:
+                page.goto(url, referer=_REFERER)
+            download = dl_info.value
+            download.save_as(str(dest_path))
+            size = dest_path.stat().st_size if dest_path.exists() else 0
+            log.debug("Page-based download succeeded: %s (%d bytes)", actual_filename, size)
+            return size > 0
+        finally:
+            page.close()
+    except Exception as e:
+        log.debug("Page-based download failed for %s: %s", actual_filename, e)
+
+    return False
+
+
 def download_attachment(
     url: str,
     dest_dir: Path,
@@ -62,6 +125,12 @@ def download_attachment(
     filename: str = "",
     retries: int = 2,
 ) -> bool:
+    """Download attachment via plain HTTP requests.
+
+    WARNING: This may return 403 on astronmembers.com because the server
+    validates full browser session state. Prefer download_attachment_with_context()
+    when a Playwright BrowserContext is available.
+    """
     dest_dir.mkdir(parents=True, exist_ok=True)
     actual_filename = filename or url.split("/")[-1].split("?")[0] or "anexo"
     dest_path = dest_dir / actual_filename
@@ -77,7 +146,8 @@ def download_attachment(
                 for chunk in resp.iter_content(chunk_size=8192):
                     f.write(chunk)
             return True
-        except Exception:
+        except Exception as e:
+            log.debug("requests download failed for %s (attempt %d): %s", actual_filename, attempt + 1, e)
             if attempt == retries:
                 return False
     return False
